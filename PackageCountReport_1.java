@@ -197,9 +197,121 @@ public class PackageCountReport extends BaseDataProvider{
             ShowMessage.error("Same price code in both Renew and new.");
             return;
         }
-        calculatePotentialPriceWithoutOrderFeesExchangeFee();
-        calculateCollectedPrice();
-        calculateOrdersOrderFeesExchangeFee();
+        
+        String sql = ticket_status_query +
+            "select nvl(potential.price_level_name, collected.price_level_name) as price_level_name, potential.currency_id\n" +
+            ", fees.number_of_order_renew, potential.number_of_renew_packages, potential.potential_amount_renew, collected.collected_price_renew\n" +
+            ", fees.number_of_order_new, potential.number_of_new_packages, potential.potential_amount_new, collected.collected_price_new\n" +
+            ", fees.order_fee_renew, fees.collected_order_fee_renew, fees.order_fee_new, fees.collected_order_fee_new, fees.handling_fee_renew\n" +
+            ", fees.collected_handling_fee_renew, fees.handling_fee_new, fees.collected_handling_fee_new, fees.exchange_fee_renew, fees.exchange_fee_new\n" +
+            " from (\n" +
+            calculatePotentialPriceWithoutOrderFeesExchangeFee() + ") potential\n" +
+            "full join (" + calculateCollectedPrice() + ") collected on potential.price_level_name = collected.price_level_name\n" +
+            "left join (" + calculateOrdersOrderFeesExchangeFee() + ") fees on (fees.order_price_level_name = potential.price_level_name or fees.order_price_level_name = collected.price_level_name)\n"
+        List<Map<String, String>> results = Database.executeQuery(sql);    
+        if(!results.isEmpty()) {
+            isoCode = CurrencyService.findByPrimaryKey(results.get(0).get("CURRENCY_ID")).getIsoCode();
+        }
+        results.stream().map(map -> {
+            PackageCountReportRow row = new PackageCountReportRow();
+            row.setPriceLevelName(map.get("PRICE_LEVEL_NAME"));
+            String numberOfRenewOrders = map.get("NUMBER_OF_ORDER_RENEW");
+            if(numberOfRenewOrders != null) {
+                row.setRenewOrders(Integer.parseInt(numberOfRenewOrders));
+            }
+            String numberOfRenewPackages = map.get("NUMBER_OF_RENEW_PACKAGES");
+            if(numberOfRenewPackages != null) {
+                row.setRenewPackages(Integer.parseInt(numberOfRenewPackages));
+            }
+            String potentialRenewAmount = map.get("POTENTIAL_AMOUNT_RENEW");
+            if(potentialRenewAmount != null) {
+                row.setRenewPotentialPrice(Double.parseDouble(potentialRenewAmount));
+            }
+            String collectedRenewAmount = map.get("COLLECTED_PRICE_RENEW");
+            if(collectedRenewAmount != null) {
+                row.setRenewCollectedPrice(Double.parseDouble(collectedRenewAmount));
+            }
+            
+            
+            String numberOfNewOrders = map.get("NUMBER_OF_ORDER_NEW");
+            if(numberOfNewOrders != null) {
+                row.setNewOrders(Integer.parseInt(numberOfNewOrders))
+            }
+            numberOfNewPackages = map.get("NUMBER_OF_NEW_PACKAGES");
+            if(numberOfNewPackages != null) {
+                row.setNewPackages(Integer.parseInt(numberOfNewPackages));
+            }
+            String potentialNewAmount = map.get("POTENTIAL_AMOUNT_NEW");
+            if(potentialNewAmount != null) {
+                row.setNewPotentialPrice(Double.parseDouble(potentialNewAmount));
+            }
+            String collectedNewAmount = map.get("COLLECTED_PRICE_RENEW");
+            if(collectedNewAmount != null) {
+                row.setNewCollectedPrice(Double.parseDouble(collectedNewAmount));
+            }
+            
+            double feesRenew = 0;
+            double feesNew = 0;
+            double collectedFeesRenew = 0;
+            double collectedfeesNew = 0;
+            if(includeOrderFees) {
+                String renewOrderFee = map.get("ORDER_FEE_RENEW");
+                if(renewOrderFee != null) {
+                    feesRenew += Double.parseDouble(renewOrderFee);
+                }
+		        String renewHandingFee = map.get("HANDLING_FEE_RENEW");
+		        if(renewHandingFee != null) {
+                        	feesRenew += Double.parseDouble(renewHandingFee);
+		        }
+		        String collectedRenewOrderFee = map.get("COLLECTED_ORDER_FEE_RENEW");
+		        if(collectedRenewOrderFee != null) {
+                        	collectedFeesRenew += Double.parseDouble(collectedRenewOrderFee);
+		        }
+		        String collectedRenewHandingFee = map.get("COLLECTED_HANDLING_FEE_RENEW");
+		        if(collectedRenewHandingFee != null) {
+                        	collectedFeesRenew += Double.parseDouble(collectedRenewHandingFee);
+		        }
+		        String potentialNewOrderFee = map.get("ORDER_FEE_NEW");
+		        if(potentialNewOrderFee != null) {
+                        	feesNew += Double.parseDouble(potentialNewOrderFee);
+		        }
+		        String potentialNewHandingFee = map.get("HANDLING_FEE_NEW");
+		        if(potentialNewHandingFee != null) {
+                        	feesNew += Double.parseDouble(potentialNewHandingFee);
+		        }
+		        String collectedNewOrderFee = map.get("COLLECTED_ORDER_FEE_NEW");
+		        if(collectedNewOrderFee != null) {
+                        	collectedfeesNew += Double.parseDouble(collectedNewOrderFee);
+		        }
+		        String collectedNewHandingFee = map.get("COLLECTED_HANDLING_FEE_NEW");
+		        if(collectedNewHandingFee != null) {
+                        	collectedfeesNew += Double.parseDouble(collectedNewHandingFee);
+		        }
+            }
+            if(showExchangeFee) {
+		        double exchangeFeeRenew = 0D;
+		        double exchangeFeeNew = 0D;
+		        String renewExchangeFee = map.get("EXCHANGE_FEE_RENEW");
+		        if(renewExchangeFee != null) {
+                    	exchangeFeeRenew = Double.parseDouble(renewExchangeFee);
+		        }
+		        String newExchangeFee = map.get("EXCHANGE_FEE_NEW");
+		        if(newExchangeFee != null) {
+                    	exchangeFeeNew = Double.parseDouble(newExchangeFee);
+		        }
+                feesRenew += exchangeFeeRenew;
+                feesNew += exchangeFeeNew;
+                collectedFeesRenew += exchangeFeeRenew;
+                collectedfeesNew += exchangeFeeNew;
+            }
+            row.setRenewPotentialPrice(row.getRenewPotentialPrice() + feesRenew);
+            row.setRenewCollectedPrice(row.getRenewCollectedPrice() + collectedFeesRenew);
+            row.setNewPotentialPrice(row.getNewPotentialPrice() + feesNew);
+            row.setNewCollectedPrice(row.getNewCollectedPrice() + collectedfeesNew);
+            
+            return row;
+        }).collect(Collectors.toList()).forEach(row -> levels.put(row.getPriceLevelName(), row));
+        
         this.reportData.addAll(levels.values());
         Collections.sort(reportData, (o1, o2) -> o1.priceLevelName.compareTo(o2.priceLevelName));
         PackageCountReportRow total = new PackageCountReportRow();
@@ -233,138 +345,100 @@ public class PackageCountReport extends BaseDataProvider{
         }
         this.displayReport = true;
 	}
+	
+	static final String ticket_status_query = "with ts as (select distinct t.package_ticket_id, tpsl.ticket_id, \n" +
+	    " last_value(tpsl.ticket_purchase_status_id) over(partition by tpsl.ticket_id order by tpsl.status_change_time range between unbounded preceding and unbounded following) as ticket_purchase_status_id\n" +
+	    " from ticket_purchase_status_log tpsl \n" +
+	    " join ticket t on t.ticket_id = tpsl.ticket_id \n" +
+	    " where tpsl.status_change_time between ? and ? and t.package_id in ("+commaDelimitedPackages+"))\n";
     
-    private void calculatePotentialPriceWithoutOrderFeesExchangeFee() throws SQLException, EntityNotFoundException {
+    private String calculatePotentialPriceWithoutOrderFeesExchangeFee() throws SQLException, EntityNotFoundException {
         String sql = null;
         List<Map<String, String>> results = null;
         String ticketFilterCondition = getTicketStatusFilterCondition();
         switch (purchaseStatus) {
             case purchase_status_reserved ://only calculate for reserved packages
                 sql = "select distinct t.price_level_name, t.currency_id\n" +
-                        (commaDelimitedRenewPriceCodes == null ? "" :
+                        (commaDelimitedRenewPriceCodes == null ? ", 0 as number_of_renew_packages, 0 as potential_amount_renew\n" :
                         ", sum(case when t.price_code_id in ("+commaDelimitedRenewPriceCodes+") then 1 else 0 end) over(partition by t.price_level_name) as number_of_renew_packages\n" +
                         ", sum(case when t.price_code_id in ("+commaDelimitedRenewPriceCodes+") then sum(tpd.amount) else 0 end) over(partition by t.price_level_name) as potential_amount_renew\n") +
-                        (commaDelimitedNewPriceCodes == null ? "" :
+                        (commaDelimitedNewPriceCodes == null ? ", 0 as number_of_new_packages, 0 as potential_amount_new\n" :
                         ", sum(case when t.price_code_id in ("+commaDelimitedNewPriceCodes+") then 1 else 0 end) over(partition by t.price_level_name) as number_of_new_packages\n" +
                         ", sum(case when t.price_code_id in ("+commaDelimitedNewPriceCodes+") then sum(tpd.amount) else 0 end) over(partition by t.price_level_name) as potential_amount_new\n") +
                         "from ticket t \n" +
                         "join ticket_price_detail tpd  on t.ticket_id = tpd.ticket_id\n" +
                         "join etix_order eo on eo.order_id = t.order_id\n" +
-                        "join (\n" +
-                        "  select distinct tpsl.ticket_id, \n" +
-                        "  last_value(tpsl.ticket_purchase_status_id) over(partition by tpsl.ticket_id order by tpsl.status_change_time range between unbounded preceding and unbounded following) as ticket_purchase_status_id\n" +
-                        "  from ticket_purchase_status_log tpsl \n" +
-                        "  join ticket t on t.ticket_id = tpsl.ticket_id \n" +
-                        "  where tpsl.status_change_time between ? and ? and t.package_id in ("+commaDelimitedPackages+")\n" +
-                        "  ) t1 on t1.ticket_id = t.ticket_id\n" +
+                        "join ts on ts.ticket_id = t.ticket_id\n" +
                         "where t.package_id in ("+commaDelimitedPackages+")\n" +
                         "and eo.sales_channel_id in ("+commaDelimitedChannels+")\n" +
                         "and tpd.price_component_label_id in ("+commaDelimitedPriceComponents+")\n" +
                         "and t.price_code_id in ("+commaDelimitedSelectedPriceCodes+")\n" +
                         ticketFilterCondition +
                         "group by t.price_level_name, t.currency_id, t.price_code_id, t.package_ticket_id\n" +
-                        "--having sum(case when t1.ticket_purchase_status_id <> 3 then 1 else 0 end) > 0\n" +
+                        "--having sum(case when ts.ticket_purchase_status_id <> 3 then 1 else 0 end) > 0\n" +
                         "order by t.price_level_name";
-                results = Database.executeQuery(sql, transactionStartTimestamp, transactionEndTimestamp, transactionStartTimestamp, transactionEndTimestamp);
                 break;
             case purchase_status_purchased ://only calculate for purchased packages
                 sql = "select distinct t.price_level_name, t.currency_id\n" +
-                        (commaDelimitedRenewPriceCodes == null ? "" :
+                        (commaDelimitedRenewPriceCodes == null ? ", 0 as number_of_renew_packages, 0 as potential_amount_renew\n" :
                         ", sum(case when t.price_code_id in ("+commaDelimitedRenewPriceCodes+") then 1 else 0 end) over(partition by t.price_level_name) as number_of_renew_packages\n" +
-                        ", sum(case when t.price_code_id in ("+commaDelimitedRenewPriceCodes+") then sum(case when t1.ticket_purchase_status_id in ("+TicketPurchaseStatusLog.PURCHASE_STATUS_VOID + ',' +TicketPurchaseStatusLog.PURCHASE_STATUS_UNVOID+")\n" +
-                                "and exists(select 1 from ticket_purchase_status_log where ticket_purchase_status_id = "+TicketPurchaseStatusLog.PURCHASE_STATUS_PURCHASED+" and ticket_id = t.ticket_id) then tpd.amount when t1.ticket_purchase_status_id = "+TicketPurchaseStatusLog.PURCHASE_STATUS_PURCHASED+" then tpd.amount else 0 end) else 0 end) over(partition by t.price_level_name) as potential_amount_renew\n") +
-                        (commaDelimitedNewPriceCodes == null ? "" :
+                        ", sum(case when t.price_code_id in ("+commaDelimitedRenewPriceCodes+") then sum(case when ts.ticket_purchase_status_id in ("+TicketPurchaseStatusLog.PURCHASE_STATUS_VOID + ',' +TicketPurchaseStatusLog.PURCHASE_STATUS_UNVOID+")\n" +
+                                "and exists(select 1 from ticket_purchase_status_log where ticket_purchase_status_id = "+TicketPurchaseStatusLog.PURCHASE_STATUS_PURCHASED+" and ticket_id = t.ticket_id) then tpd.amount when ts.ticket_purchase_status_id = "+TicketPurchaseStatusLog.PURCHASE_STATUS_PURCHASED+" then tpd.amount else 0 end) else 0 end) over(partition by t.price_level_name) as potential_amount_renew\n") +
+                        (commaDelimitedNewPriceCodes == null ? ", 0 as number_of_new_packages, 0 as potential_amount_new\n" :
                         ", sum(case when t.price_code_id in ("+commaDelimitedNewPriceCodes+") then 1 else 0 end) over(partition by t.price_level_name) as number_of_new_packages\n" +
-                        ", sum(case when t.price_code_id in ("+commaDelimitedNewPriceCodes+") then sum(case when t1.ticket_purchase_status_id in ("+TicketPurchaseStatusLog.PURCHASE_STATUS_VOID + ',' +TicketPurchaseStatusLog.PURCHASE_STATUS_UNVOID+")\n" +
-                                "and exists(select 1 from ticket_purchase_status_log where ticket_purchase_status_id = "+TicketPurchaseStatusLog.PURCHASE_STATUS_PURCHASED+" and ticket_id = t.ticket_id) then tpd.amount when t1.ticket_purchase_status_id = "+TicketPurchaseStatusLog.PURCHASE_STATUS_PURCHASED+" then tpd.amount else 0 end) else 0 end) over(partition by t.price_level_name) as potential_amount_new\n") +
+                        ", sum(case when t.price_code_id in ("+commaDelimitedNewPriceCodes+") then sum(case when ts.ticket_purchase_status_id in ("+TicketPurchaseStatusLog.PURCHASE_STATUS_VOID + ',' +TicketPurchaseStatusLog.PURCHASE_STATUS_UNVOID+")\n" +
+                                "and exists(select 1 from ticket_purchase_status_log where ticket_purchase_status_id = "+TicketPurchaseStatusLog.PURCHASE_STATUS_PURCHASED+" and ticket_id = t.ticket_id) then tpd.amount when ts.ticket_purchase_status_id = "+TicketPurchaseStatusLog.PURCHASE_STATUS_PURCHASED+" then tpd.amount else 0 end) else 0 end) over(partition by t.price_level_name) as potential_amount_new\n") +
                         "from ticket t \n" +
                         "join ticket_price_detail tpd  on t.ticket_id = tpd.ticket_id\n" +
                         "join etix_order eo on eo.order_id = t.order_id\n" +
-                        "join (\n" +
-                        "  select distinct tpsl.ticket_id, \n" +
-                        "  last_value(tpsl.ticket_purchase_status_id) over(partition by tpsl.ticket_id order by tpsl.status_change_time range between unbounded preceding and unbounded following) as ticket_purchase_status_id\n" +
-                        "  from ticket_purchase_status_log tpsl \n" +
-                        "  join ticket t on t.ticket_id = tpsl.ticket_id \n" +
-                        "  where tpsl.status_change_time between ? and ? and t.package_id in ("+commaDelimitedPackages+")\n" +
-                        "  ) t1 on t1.ticket_id = t.ticket_id\n" +
+                        "join ts on ts.ticket_id = t.ticket_id\n" +
                         "where t.package_id in ("+commaDelimitedPackages+")\n" +
                         "and eo.sales_channel_id in ("+commaDelimitedChannels+")\n" +
                         "and tpd.price_component_label_id in ("+commaDelimitedPriceComponents+")\n" +
                         "and t.price_code_id in ("+commaDelimitedSelectedPriceCodes+")\n" +
                         ticketFilterCondition +
                         "group by t.price_level_name, t.currency_id, t.price_code_id, t.package_ticket_id\n" +
-                        "having sum(case when t1.ticket_purchase_status_id <> 3 then 1 else 0 end) > 0\n" +
+                        "having sum(case when ts.ticket_purchase_status_id <> 3 then 1 else 0 end) > 0\n" +
                         "order by t.price_level_name";
-                results = Database.executeQuery(sql, transactionStartTimestamp, transactionEndTimestamp);
                 break;
             case purchase_status_reserved_and_purchased ://calculate for both reserved and purchased packages
                 sql = "select distinct t.price_level_name, t.currency_id\n" +
-                        (commaDelimitedRenewPriceCodes == null ? "" :
+                        (commaDelimitedRenewPriceCodes == null ? ", 0 as number_of_renew_packages, 0 as potential_amount_renew\n" :
                         ", sum(case when t.price_code_id in ("+commaDelimitedRenewPriceCodes+") then 1 else 0 end) over(partition by t.price_level_name) as number_of_renew_packages\n" +
-                        ", sum(case when t.price_code_id in ("+commaDelimitedRenewPriceCodes+") then sum(case when t1.ticket_purchase_status_id in ("+TicketPurchaseStatusLog.PURCHASE_STATUS_VOID + ',' +TicketPurchaseStatusLog.PURCHASE_STATUS_UNVOID+")\n" +
-                                "and exists(select 1 from ticket_purchase_status_log where ticket_purchase_status_id = "+TicketPurchaseStatusLog.PURCHASE_STATUS_PURCHASED+" and ticket_id = t.ticket_id) then tpd.amount when t1.ticket_purchase_status_id in ("+TicketPurchaseStatusLog.PURCHASE_STATUS_PURCHASED+ ',' + TicketPurchaseStatusLog.PURCHASE_STATUS_RESERVED +") then tpd.amount else 0 end) else 0 end) over(partition by t.price_level_name) as potential_amount_renew\n") +
-                        (commaDelimitedNewPriceCodes == null ? "" :
+                        ", sum(case when t.price_code_id in ("+commaDelimitedRenewPriceCodes+") then sum(case when ts.ticket_purchase_status_id in ("+TicketPurchaseStatusLog.PURCHASE_STATUS_VOID + ',' +TicketPurchaseStatusLog.PURCHASE_STATUS_UNVOID+")\n" +
+                                "and exists(select 1 from ticket_purchase_status_log where ticket_purchase_status_id = "+TicketPurchaseStatusLog.PURCHASE_STATUS_PURCHASED+" and ticket_id = t.ticket_id) then tpd.amount when ts.ticket_purchase_status_id in ("+TicketPurchaseStatusLog.PURCHASE_STATUS_PURCHASED+ ',' + TicketPurchaseStatusLog.PURCHASE_STATUS_RESERVED +") then tpd.amount else 0 end) else 0 end) over(partition by t.price_level_name) as potential_amount_renew\n") +
+                        (commaDelimitedNewPriceCodes == null ? ", 0 as number_of_new_packages, 0 as potential_amount_new\n" :
                         ", sum(case when t.price_code_id in ("+commaDelimitedNewPriceCodes+") then 1 else 0 end) over(partition by t.price_level_name) as number_of_new_packages\n" +
-                        ", sum(case when t.price_code_id in ("+commaDelimitedNewPriceCodes+") then sum(case when t1.ticket_purchase_status_id in ("+TicketPurchaseStatusLog.PURCHASE_STATUS_VOID + ',' +TicketPurchaseStatusLog.PURCHASE_STATUS_UNVOID+")\n" +
-                                "and exists(select 1 from ticket_purchase_status_log where ticket_purchase_status_id = "+TicketPurchaseStatusLog.PURCHASE_STATUS_PURCHASED+" and ticket_id = t.ticket_id) then tpd.amount when t1.ticket_purchase_status_id in ("+TicketPurchaseStatusLog.PURCHASE_STATUS_PURCHASED+ ',' + TicketPurchaseStatusLog.PURCHASE_STATUS_RESERVED +") then tpd.amount else 0 end) else 0 end) over(partition by t.price_level_name) as potential_amount_new\n") +
+                        ", sum(case when t.price_code_id in ("+commaDelimitedNewPriceCodes+") then sum(case when ts.ticket_purchase_status_id in ("+TicketPurchaseStatusLog.PURCHASE_STATUS_VOID + ',' +TicketPurchaseStatusLog.PURCHASE_STATUS_UNVOID+")\n" +
+                                "and exists(select 1 from ticket_purchase_status_log where ticket_purchase_status_id = "+TicketPurchaseStatusLog.PURCHASE_STATUS_PURCHASED+" and ticket_id = t.ticket_id) then tpd.amount when ts.ticket_purchase_status_id in ("+TicketPurchaseStatusLog.PURCHASE_STATUS_PURCHASED+ ',' + TicketPurchaseStatusLog.PURCHASE_STATUS_RESERVED +") then tpd.amount else 0 end) else 0 end) over(partition by t.price_level_name) as potential_amount_new\n") +
                         "from ticket t \n" +
                         "join ticket_price_detail tpd  on t.ticket_id = tpd.ticket_id\n" +
                         "join etix_order eo on eo.order_id = t.order_id\n" +
-                        "join (\n" +
-                        "  select distinct tpsl.ticket_id, \n" +
-                        "  last_value(tpsl.ticket_purchase_status_id) over(partition by tpsl.ticket_id order by tpsl.status_change_time range between unbounded preceding and unbounded following) as ticket_purchase_status_id\n" +
-                        "  from ticket_purchase_status_log tpsl \n" +
-                        "  join ticket t on t.ticket_id = tpsl.ticket_id \n" +
-                        "  where tpsl.status_change_time between ? and ? and t.package_id in ("+commaDelimitedPackages+")\n" +
-                        "  ) t1 on t1.ticket_id = t.ticket_id\n" +
+                        "join ts on ts.ticket_id = t.ticket_id\n" +
                         "where t.package_id in ("+commaDelimitedPackages+")\n" +
                         "and eo.sales_channel_id in ("+commaDelimitedChannels+")\n" +
                         "and tpd.price_component_label_id in ("+commaDelimitedPriceComponents+")\n" +
                         "and t.price_code_id in ("+commaDelimitedSelectedPriceCodes+")\n" +
                         ticketFilterCondition +
                         "group by t.price_level_name, t.currency_id, t.price_code_id, t.package_ticket_id\n" +
-                        "having sum(case when t1.ticket_purchase_status_id <> 3 then 1 else 0 end) > 0\n" +
+                        "having sum(case when ts.ticket_purchase_status_id <> 3 then 1 else 0 end) > 0\n" +
                         "order by t.price_level_name";
-                results = Database.executeQuery(sql, transactionStartTimestamp, transactionEndTimestamp, transactionStartTimestamp, transactionEndTimestamp);
                 break;
             default:
                  throw new RuntimeException("Wrong purchase status " + purchaseStatus);
             
         }
-        if(!results.isEmpty()) {
-            isoCode = CurrencyService.findByPrimaryKey(results.get(0).get("CURRENCY_ID")).getIsoCode();
-        }
-        results.stream().map(map -> {
-            PackageCountReportRow row = new PackageCountReportRow();
-            row.setPriceLevelName(map.get("PRICE_LEVEL_NAME"));
-            String numberOfPackages = map.get("NUMBER_OF_RENEW_PACKAGES");
-            if(numberOfPackages != null) {
-                row.setRenewPackages(Integer.parseInt(numberOfPackages));
-            }
-            numberOfPackages = map.get("NUMBER_OF_NEW_PACKAGES");
-            if(numberOfPackages != null) {
-                row.setNewPackages(Integer.parseInt(numberOfPackages));
-            }
-            String potentialAmount = map.get("POTENTIAL_AMOUNT_RENEW");
-            if(potentialAmount != null) {
-                row.setRenewPotentialPrice(Double.parseDouble(potentialAmount));
-            }
-            potentialAmount = map.get("POTENTIAL_AMOUNT_NEW");
-            if(potentialAmount != null) {
-                row.setNewPotentialPrice(Double.parseDouble(potentialAmount));
-            }
-            return row;
-        }).collect(Collectors.toList()).forEach(row -> levels.put(row.getPriceLevelName(), row));
+        return sql;
     }
     
     private void calculateCollectedPrice() {
         String ticketFilterCondition = null;
         switch (purchaseStatus) {
             case purchase_status_reserved :
-                ticketFilterCondition = "and t1.ticket_purchase_status_id = "+TicketPurchaseStatusLog.PURCHASE_STATUS_RESERVED+"\n";
+                ticketFilterCondition = "and ts.ticket_purchase_status_id = "+TicketPurchaseStatusLog.PURCHASE_STATUS_RESERVED+"\n";
                 break;
             case purchase_status_purchased :
-                ticketFilterCondition = "and t1.ticket_purchase_status_id <> "+TicketPurchaseStatusLog.PURCHASE_STATUS_RESERVED+"\n";
+                ticketFilterCondition = "and ts.ticket_purchase_status_id <> "+TicketPurchaseStatusLog.PURCHASE_STATUS_RESERVED+"\n";
                 break;
             case purchase_status_reserved_and_purchased :
                 ticketFilterCondition = "";
@@ -373,21 +447,15 @@ public class PackageCountReport extends BaseDataProvider{
                 throw new RuntimeException("Wrong purchase status " + purchaseStatus);
         }
         String sql = "select distinct t.price_level_name\n" +
-            (commaDelimitedRenewPriceCodes == null ? "" :
+            (commaDelimitedRenewPriceCodes == null ? ", 0 as collected_price_renew\n" :
             ", sum(case when t.price_code_id in ("+commaDelimitedRenewPriceCodes+") then sum(tcd.amount) else 0 end) over(partition BY t.price_level_name) as collected_price_renew\n") +
-            (commaDelimitedNewPriceCodes == null ? "" :
+            (commaDelimitedNewPriceCodes == null ? ", 0 as collected_price_new\n" :
             ", sum(case when t.price_code_id in ("+commaDelimitedNewPriceCodes+") then sum(tcd.amount) else 0 end) over(partition BY t.price_level_name) as collected_price_new\n") +
             "from\n" +
             "ticket t\n" +
             "join transaction_component_detail tcd on t.ticket_id = tcd.ticket_id\n" +
             "join etix_order eo on eo.order_id = t.order_id\n" +
-            "join (\n" +
-            "  select distinct tpsl.ticket_id, \n" +
-            "  last_value(tpsl.ticket_purchase_status_id) over(partition by tpsl.ticket_id order by tpsl.status_change_time range between unbounded preceding and unbounded following) as ticket_purchase_status_id\n" +
-            "  from ticket_purchase_status_log tpsl \n" +
-            "  join ticket t on t.ticket_id = tpsl.ticket_id \n" +
-            "  where tpsl.status_change_time between ? and ? and t.package_id in ("+commaDelimitedPackages+")\n" +
-            "  ) t1 on t1.ticket_id = t.ticket_id\n" +
+            "join ts on ts.ticket_id = t.ticket_id\n" +
             "where t.package_id in ("+commaDelimitedPackages+")\n" +
             "and t.price_code_id in ("+commaDelimitedSelectedPriceCodes+")\n" +
             "and eo.sales_channel_id in ("+commaDelimitedChannels+")\n" +
@@ -395,41 +463,24 @@ public class PackageCountReport extends BaseDataProvider{
             "and tcd.price_component_label_id in ("+commaDelimitedPriceComponents+")\n" +
             "and exists(select 1 from transaction x where x.order_id = eo.order_id and x.price <> 0 and tcd.transaction_id = x.transaction_id and x.action in ('sell','payment','reserve','refund','pull') and x.transaction_date between ? and ?)\n" +
             "group by t.price_level_name, t.price_code_id, t.package_ticket_id\n" +
-            "having sum(case when t1.ticket_purchase_status_id <> 3 then 1 else 0 end) > 0";
-        List<Map<String, String>> results= Database.executeQuery(sql, transactionStartTimestamp, transactionEndTimestamp, transactionStartTimestamp, transactionEndTimestamp);
-        results.forEach(map -> {
-            String level = map.get("PRICE_LEVEL_NAME");
-            PackageCountReportRow row = levels.get(level);
-            if(row == null) {
-                row = new PackageCountReportRow();
-                row.setPriceLevelName(level);
-                levels.put(level, row);
-            }
-            String collectedPriceRenew = map.get("COLLECTED_PRICE_RENEW");
-            if(collectedPriceRenew != null) {
-                row.setRenewCollectedPrice(Double.parseDouble(collectedPriceRenew));
-            }
-            String collectedPriceNew = map.get("COLLECTED_PRICE_NEW");
-            if(collectedPriceNew != null) {
-                row.setNewCollectedPrice(Double.parseDouble(collectedPriceNew));
-            }
-        });
+            "having sum(case when ts.ticket_purchase_status_id <> 3 then 1 else 0 end) > 0";
+        return sql
     }
 
     private String getTicketStatusFilterCondition() throws RuntimeException {
         String ticketFilterCondition = null;
         switch (purchaseStatus) {
             case purchase_status_reserved :
-                ticketFilterCondition = "and t1.ticket_purchase_status_id = "+TicketPurchaseStatusLog.PURCHASE_STATUS_RESERVED+"\n" +
+                ticketFilterCondition = "and ts.ticket_purchase_status_id = "+TicketPurchaseStatusLog.PURCHASE_STATUS_RESERVED+"\n" +
                     "and exists(select 1 from transaction x where x.order_id = eo.order_id and x.action in ('sell','payment','reserve','refund','pull') and x.price <> 0 and x.transaction_date between ? and ?)\n";
                 break;
             case purchase_status_purchased :
-                ticketFilterCondition = "and t1.ticket_purchase_status_id <> "+TicketPurchaseStatusLog.PURCHASE_STATUS_RESERVED+"\n";
+                ticketFilterCondition = "and ts.ticket_purchase_status_id <> "+TicketPurchaseStatusLog.PURCHASE_STATUS_RESERVED+"\n";
                 break;
             case purchase_status_reserved_and_purchased :
-                ticketFilterCondition = "and (t1.ticket_purchase_status_id = "+TicketPurchaseStatusLog.PURCHASE_STATUS_RESERVED+ "\n" +
+                ticketFilterCondition = "and (ts.ticket_purchase_status_id = "+TicketPurchaseStatusLog.PURCHASE_STATUS_RESERVED+ "\n" +
                     "and exists(select 1 from transaction x where x.order_id = eo.order_id and x.action in ('sell','payment','reserve','refund','pull') and x.price <> 0 and x.transaction_date between ? and ?)\n" +
-                    "or t1.ticket_purchase_status_id <> "+TicketPurchaseStatusLog.PURCHASE_STATUS_RESERVED+")\n";
+                    "or ts.ticket_purchase_status_id <> "+TicketPurchaseStatusLog.PURCHASE_STATUS_RESERVED+")\n";
                 break;
             default :
                 throw new RuntimeException("Wrong purchase status " + purchaseStatus);
@@ -484,13 +535,7 @@ public class PackageCountReport extends BaseDataProvider{
                     "    FROM etix_order eo\n" +
                     "    JOIN ticket t\n" +
                     "    ON t.order_id = eo.order_id\n" +
-                    "    join (\n" +
-                    "       select distinct tpsl.ticket_id, \n" +
-                    "           last_value(tpsl.ticket_purchase_status_id) over(partition by tpsl.ticket_id order by tpsl.status_change_time range between unbounded preceding and unbounded following) as ticket_purchase_status_id\n" +
-                    "       from ticket_purchase_status_log tpsl \n" +
-                    "       join ticket t on t.ticket_id = tpsl.ticket_id \n" +
-                    "       where tpsl.status_change_time between ? and ? and t.package_id in ("+commaDelimitedPackages+")\n" +
-                    "    ) t1 on t1.ticket_id = t.ticket_id\n" +
+                    "    join ts on ts.ticket_id = t.ticket_id\n" +
                     "    WHERE EXISTS\n" +
                     "      (SELECT 1\n" +
                     "      FROM ticket_price_detail tpd\n" +
@@ -501,13 +546,8 @@ public class PackageCountReport extends BaseDataProvider{
                     "    AND eo.sales_channel_id IN ("+commaDelimitedChannels+")\n" +
                     ticketFilterCondition +
                     "    AND t.price_code_id     IN ("+commaDelimitedSelectedPriceCodes+")\n" +
-                    "    and t.package_ticket_id in (select t.package_ticket_id from (\n" +
-                    "       select distinct t.package_ticket_id, tpsl.ticket_id, \n" +
-                    "           last_value(tpsl.ticket_purchase_status_id) over(partition by tpsl.ticket_id order by tpsl.status_change_time range between unbounded preceding and unbounded following) as ticket_purchase_status_id\n" +
-                    "       from ticket_purchase_status_log tpsl \n" +
-                    "       join ticket t on t.ticket_id = tpsl.ticket_id \n" +
-                    "       where tpsl.status_change_time between ? and ? and t.package_id in ("+commaDelimitedPackages+")\n" +
-                    "       ) t group by t.package_ticket_id having sum(case when t.ticket_purchase_status_id <> 3 then 1 else 0 end) > 0)\n" +
+                    "    and t.package_ticket_id in (select t.package_ticket_id from ts\n" +
+                    "       group by ts.package_ticket_id having sum(case when ts.ticket_purchase_status_id <> 3 then 1 else 0 end) > 0)\n" +
                     "    GROUP BY eo.order_id,\n" +
                     "      eo.order_fee,\n" +
                     "      eo.handling_fee,\n" +
@@ -530,48 +570,7 @@ public class PackageCountReport extends BaseDataProvider{
                     "GROUP BY t2.order_price_level_name,\n" +
                     "  t2.order_id, t2.new_or_renew\n" +
                     "ORDER BY t2.order_price_level_name";
-        List<Map<String, String>> results = null;
-        if(purchase_status_purchased == purchaseStatus) {
-            results= Database.executeQuery(sql, transactionStartTimestamp, transactionEndTimestamp, transactionStartTimestamp, transactionEndTimestamp);
-        } else {
-            results= Database.executeQuery(sql, transactionStartTimestamp, transactionEndTimestamp, transactionStartTimestamp, transactionEndTimestamp, transactionStartTimestamp, transactionEndTimestamp);
-        }
-        results.forEach(map -> {
-            String level = map.get("ORDER_PRICE_LEVEL_NAME");
-            PackageCountReportRow row = levels.get(level);
-            if(row == null) return;
-            String numberOfRenewOrder = map.get("NUMBER_OF_ORDER_RENEW");
-            row.setRenewOrders(numberOfRenewOrder == null ? null : Integer.parseInt(numberOfRenewOrder));
-            String numberOfNewOrder = map.get("NUMBER_OF_ORDER_NEW");
-            row.setNewOrders(numberOfNewOrder == null ? null : Integer.parseInt(numberOfNewOrder));
-            double feesRenew = 0;
-            double feesNew = 0;
-            double collectedFeesRenew = 0;
-            double collectedfeesNew = 0;
-            if(includeOrderFees) {
-                feesRenew += Double.parseDouble(map.get("ORDER_FEE_RENEW"));
-                feesRenew += Double.parseDouble(map.get("HANDLING_FEE_RENEW"));
-                collectedFeesRenew += Double.parseDouble(map.get("COLLECTED_ORDER_FEE_RENEW"));
-                collectedFeesRenew += Double.parseDouble(map.get("COLLECTED_HANDLING_FEE_RENEW"));
-                feesNew += Double.parseDouble(map.get("ORDER_FEE_NEW"));
-                feesNew += Double.parseDouble(map.get("HANDLING_FEE_NEW"));
-                collectedfeesNew += Double.parseDouble(map.get("COLLECTED_ORDER_FEE_NEW"));
-                collectedfeesNew += Double.parseDouble(map.get("COLLECTED_HANDLING_FEE_NEW"));
-            }
-            if(showExchangeFee) {
-                double exchangeFeeRenew = Double.parseDouble(map.get("EXCHANGE_FEE_RENEW"));
-                double exchangeFeeNew = Double.parseDouble(map.get("EXCHANGE_FEE_NEW"));
-                feesRenew += exchangeFeeRenew;
-                feesNew += exchangeFeeNew;
-                collectedFeesRenew += exchangeFeeRenew;
-                collectedfeesNew += exchangeFeeNew;
-            }
-            row.setRenewPotentialPrice(row.getRenewPotentialPrice() + feesRenew);
-            row.setRenewCollectedPrice(row.getRenewCollectedPrice() + collectedFeesRenew);
-            row.setNewPotentialPrice(row.getNewPotentialPrice() + feesNew);
-            row.setNewCollectedPrice(row.getNewCollectedPrice() + collectedfeesNew);
-        });
-        
+        return sql;
     }
 	
 	public String formatNumber(Object obj) {
