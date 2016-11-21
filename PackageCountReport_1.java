@@ -30,11 +30,12 @@ import com.etix.ticketing.Package;
 import com.etix.ticketing.TicketPurchaseStatusLog;
 import com.etix.ui.BaseDataProvider;
 import com.etix.util.Database;
+import com.etix.util.DateTime;
 import com.etix.util.StringUtil;
-import java.sql.Timestamp;
 import java.text.DateFormat;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -57,8 +58,8 @@ public class PackageCountReport extends BaseDataProvider{
 	private Date transactionStartDateTime;
 	private Date transactionEndDateTime;
     
-    private Timestamp transactionStartTimestamp;
-    private Timestamp transactionEndTimestamp;
+    private String startDate;
+    private String endDate;
     private List<Package> packages = null;
 	private List<Long> selectedPriceComponents = new ArrayList<>();
 	private List<Long> selectedChannels = new ArrayList<>();
@@ -179,8 +180,12 @@ public class PackageCountReport extends BaseDataProvider{
             default:
                 throw new IllegalArgumentException("unexpected ticket status: " + selectedticketStatuses);
         }
-        transactionStartTimestamp = new Timestamp(transactionStartDateTime.getTime());
-        transactionEndTimestamp = new Timestamp(transactionEndDateTime.getTime());
+        GregorianCalendar  start = new GregorianCalendar();
+        start.setTimeInMillis(transactionStartDateTime.getTime());
+        startDate = DateTime.dateToOracleLocaleDate(start);
+        GregorianCalendar  end = new GregorianCalendar();
+        end.setTimeInMillis(transactionEndDateTime.getTime());
+        endDate = DateTime.dateToOracleLocaleDate(end);
         commaDelimitedPackages = StringUtil.toCommaDelimitedString(selectedPackages);
         commaDelimitedChannels = StringUtil.toCommaDelimitedString(selectedChannels);
         commaDelimitedStatuses = StringUtil.toCommaDelimitedString(selectedticketStatuses.stream().map(e -> "'" + e + "'").collect(Collectors.toList()));
@@ -197,6 +202,11 @@ public class PackageCountReport extends BaseDataProvider{
             ShowMessage.error("Same price code in both Renew and new.");
             return;
         }
+        String ticket_status_query = "with ts as (select distinct t.package_ticket_id, tpsl.ticket_id, \n" +
+	    " last_value(tpsl.ticket_purchase_status_id) over(partition by tpsl.ticket_id order by tpsl.status_change_time range between unbounded preceding and unbounded following) as ticket_purchase_status_id\n" +
+	    " from ticket_purchase_status_log tpsl \n" +
+	    " join ticket t on t.ticket_id = tpsl.ticket_id \n" +
+	    " where tpsl.status_change_time between "+startDate+" and "+endDate+" and t.package_id in ("+commaDelimitedPackages+"))\n";
         
         String sql = ticket_status_query +
             "select nvl(potential.price_level_name, collected.price_level_name) as price_level_name, potential.currency_id\n" +
@@ -207,7 +217,7 @@ public class PackageCountReport extends BaseDataProvider{
             " from (\n" +
             calculatePotentialPriceWithoutOrderFeesExchangeFee() + ") potential\n" +
             "full join (" + calculateCollectedPrice() + ") collected on potential.price_level_name = collected.price_level_name\n" +
-            "left join (" + calculateOrdersOrderFeesExchangeFee() + ") fees on (fees.order_price_level_name = potential.price_level_name or fees.order_price_level_name = collected.price_level_name)\n"
+            "left join (" + calculateOrdersOrderFeesExchangeFee() + ") fees on (fees.order_price_level_name = potential.price_level_name or fees.order_price_level_name = collected.price_level_name)\n";
         List<Map<String, String>> results = Database.executeQuery(sql);    
         if(!results.isEmpty()) {
             isoCode = CurrencyService.findByPrimaryKey(results.get(0).get("CURRENCY_ID")).getIsoCode();
@@ -235,9 +245,9 @@ public class PackageCountReport extends BaseDataProvider{
             
             String numberOfNewOrders = map.get("NUMBER_OF_ORDER_NEW");
             if(numberOfNewOrders != null) {
-                row.setNewOrders(Integer.parseInt(numberOfNewOrders))
+                row.setNewOrders(Integer.parseInt(numberOfNewOrders));
             }
-            numberOfNewPackages = map.get("NUMBER_OF_NEW_PACKAGES");
+            String numberOfNewPackages = map.get("NUMBER_OF_NEW_PACKAGES");
             if(numberOfNewPackages != null) {
                 row.setNewPackages(Integer.parseInt(numberOfNewPackages));
             }
@@ -328,7 +338,7 @@ public class PackageCountReport extends BaseDataProvider{
         });
         reportData.add(total);
         if(StringUtils.isBlank(isoCode)) {
-            String sql = "select c.iso_code from currency c\n" +
+            sql = "select c.iso_code from currency c\n" +
                             "where exists \n" +
                             "(select 1 from package_price pp join package_price_code ppc on ppc.package_price_code_id = pp.package_price_code_id \n" +
                             "where ppc.package_id in ("+commaDelimitedPackages+") and c.currency_id = pp.currency_id\n" +
@@ -346,15 +356,10 @@ public class PackageCountReport extends BaseDataProvider{
         this.displayReport = true;
 	}
 	
-	static final String ticket_status_query = "with ts as (select distinct t.package_ticket_id, tpsl.ticket_id, \n" +
-	    " last_value(tpsl.ticket_purchase_status_id) over(partition by tpsl.ticket_id order by tpsl.status_change_time range between unbounded preceding and unbounded following) as ticket_purchase_status_id\n" +
-	    " from ticket_purchase_status_log tpsl \n" +
-	    " join ticket t on t.ticket_id = tpsl.ticket_id \n" +
-	    " where tpsl.status_change_time between ? and ? and t.package_id in ("+commaDelimitedPackages+"))\n";
+	
     
     private String calculatePotentialPriceWithoutOrderFeesExchangeFee() throws SQLException, EntityNotFoundException {
         String sql = null;
-        List<Map<String, String>> results = null;
         String ticketFilterCondition = getTicketStatusFilterCondition();
         switch (purchaseStatus) {
             case purchase_status_reserved ://only calculate for reserved packages
@@ -431,7 +436,7 @@ public class PackageCountReport extends BaseDataProvider{
         return sql;
     }
     
-    private void calculateCollectedPrice() {
+    private String calculateCollectedPrice() {
         String ticketFilterCondition = null;
         switch (purchaseStatus) {
             case purchase_status_reserved :
@@ -461,10 +466,10 @@ public class PackageCountReport extends BaseDataProvider{
             "and eo.sales_channel_id in ("+commaDelimitedChannels+")\n" +
             ticketFilterCondition +
             "and tcd.price_component_label_id in ("+commaDelimitedPriceComponents+")\n" +
-            "and exists(select 1 from transaction x where x.order_id = eo.order_id and x.price <> 0 and tcd.transaction_id = x.transaction_id and x.action in ('sell','payment','reserve','refund','pull') and x.transaction_date between ? and ?)\n" +
+            "and exists(select 1 from transaction x where x.order_id = eo.order_id and x.price <> 0 and tcd.transaction_id = x.transaction_id and x.action in ('sell','payment','reserve','refund','pull') and x.transaction_date between "+startDate+" and "+endDate+")\n" +
             "group by t.price_level_name, t.price_code_id, t.package_ticket_id\n" +
             "having sum(case when ts.ticket_purchase_status_id <> 3 then 1 else 0 end) > 0";
-        return sql
+        return sql;
     }
 
     private String getTicketStatusFilterCondition() throws RuntimeException {
@@ -472,14 +477,14 @@ public class PackageCountReport extends BaseDataProvider{
         switch (purchaseStatus) {
             case purchase_status_reserved :
                 ticketFilterCondition = "and ts.ticket_purchase_status_id = "+TicketPurchaseStatusLog.PURCHASE_STATUS_RESERVED+"\n" +
-                    "and exists(select 1 from transaction x where x.order_id = eo.order_id and x.action in ('sell','payment','reserve','refund','pull') and x.price <> 0 and x.transaction_date between ? and ?)\n";
+                    "and exists(select 1 from transaction x where x.order_id = eo.order_id and x.action in ('sell','payment','reserve','refund','pull') and x.price <> 0 and x.transaction_date between "+startDate+" and "+endDate+")\n";
                 break;
             case purchase_status_purchased :
                 ticketFilterCondition = "and ts.ticket_purchase_status_id <> "+TicketPurchaseStatusLog.PURCHASE_STATUS_RESERVED+"\n";
                 break;
             case purchase_status_reserved_and_purchased :
                 ticketFilterCondition = "and (ts.ticket_purchase_status_id = "+TicketPurchaseStatusLog.PURCHASE_STATUS_RESERVED+ "\n" +
-                    "and exists(select 1 from transaction x where x.order_id = eo.order_id and x.action in ('sell','payment','reserve','refund','pull') and x.price <> 0 and x.transaction_date between ? and ?)\n" +
+                    "and exists(select 1 from transaction x where x.order_id = eo.order_id and x.action in ('sell','payment','reserve','refund','pull') and x.price <> 0 and x.transaction_date between "+startDate+" and "+endDate+")\n" +
                     "or ts.ticket_purchase_status_id <> "+TicketPurchaseStatusLog.PURCHASE_STATUS_RESERVED+")\n";
                 break;
             default :
@@ -488,7 +493,7 @@ public class PackageCountReport extends BaseDataProvider{
         return ticketFilterCondition;
     }
     
-    private void calculateOrdersOrderFeesExchangeFee() {
+    private String calculateOrdersOrderFeesExchangeFee() {
         String ticketFilterCondition = getTicketStatusFilterCondition();
         String sql = "SELECT DISTINCT t2.order_price_level_name,\n" +
                     "  SUM(case t2.new_or_renew when 'renew' then 1 else 0 end) over (partition BY t2.order_price_level_name)    AS number_of_order_renew,\n" +
@@ -556,7 +561,7 @@ public class PackageCountReport extends BaseDataProvider{
                     "    ) t1\n" +
                     "  JOIN transaction x\n" +
                     "  ON t1.order_id = x.order_id\n" +
-                    "  WHERE x.transaction_date between ? and ?\n" +
+                    "  WHERE x.transaction_date between "+startDate+" and "+endDate+"\n" +
                     "  GROUP BY t1.order_price_level_name,\n" +
                     "    t1.order_id,\n" +
                     "    t1.order_fee,\n" +
