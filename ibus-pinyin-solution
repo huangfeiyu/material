@@ -1,0 +1,5 @@
+solution 1:
+	go to preferences -> pinyin mode -> select full pinyin and incomplete pinyin
+
+solution 2:
+	execute ibus-daemon -drx in terminal
