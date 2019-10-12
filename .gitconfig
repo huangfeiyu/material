@@ -1,0 +1,16 @@
+[user]
+	name = HuangFeiyu
+	email = feiyu.huang@etix.com
+[difftool]
+	prompt = false
+[mergetool]
+	prompt = false
+[diff]
+	tool = vimdiff
+[merge]
+	tool = vimdiff
+[core]
+	editor = vi
+[alias]
+	showtool = "!showci () { rev=${1:-HEAD}; git difftool $rev~1 $rev; }; showci $1"
+    work = log --pretty=\"format:%C(yellow)%h%Creset %<(60,trunc)%s %C(blue)%an(%aD) %C(green)%cn(%cD)\" --graph --date=short
