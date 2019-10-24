@@ -1,35 +1,68 @@
-call plug#begin()
-
+set packpath^=~/.vim
+packadd minpac
+call minpac#init()
+call minpac#add('k-takata/minpac', {'type': 'opt'})
+call minpac#add('junegunn/fzf')
 " On-demand loading
-Plug 'aklt/plantuml-syntax'
-call plug#end()
+call minpac#add('aklt/plantuml-syntax',{'type': 'opt'})
+call minpac#add('tpope/vim-fugitive',{'type': 'opt'})
+call minpac#add('neoclide/coc.nvim',{'type': 'opt', 'branch': 'release'})
+packadd vim-fugitive
+
 if &diff
     " diff mode"
     set diffopt+=iwhite
     set mouse=a
     map ] ]c
     map [ [c
+    nnoremap w 3w
+    nnoremap b 3b
 endif
+syntax on " Enable syntax highlighting.
+filetype plugin indent on " Enable file type based indentation.
 set nu
-set tabstop=4
-set shiftwidth=4
 set smarttab
-set autoindent
-set expandtab
 set cursorline
 set hlsearch
 set nocompatible
 set nowrapscan
-set clipboard=unnamedplus
-set wildignore+=*/node_modules/*
-" from home
-syntax on " Enable syntax highlighting.
-filetype plugin indent on " Enable file type based indentation.
 set autoindent " Respect indentation when starting a new line.
 set expandtab " Expand tabs to spaces. Essential in Python.
 set tabstop=4 " Number of spaces tab is counted for.
 set shiftwidth=4 " Number of spaces to use for autoindent.
 set backspace=2 " Fix backspace behavior on most terminals.
-set tags=tags;
+set tags=.git/tags;
+set clipboard=unnamedplus
+set wildignore+=*/node_modules/*
 colorscheme industry " Change a colorscheme.
+set directory-=. "don't creat swap file in the same directory of the editting file, the default value of diretory as: directory=.,~/tmp,/var/tmp,/tmp
+nnoremap<C-p> :<C-u>FZF<CR>
 
+" file is large from 10mb
+let g:LargeFile = 1024 * 1024 * 10
+augroup LargeFile 
+  au!
+  autocmd BufReadPre * let f=getfsize(expand("<afile>")) | if f > g:LargeFile || f == -2 | call LargeFile() | else | call NormalFile() | endif
+augroup END
+
+function! LargeFile()
+ " no syntax highlighting etc
+ set eventignore+=FileType
+ " not do incsearch
+ set noincsearch
+ " save memory when other file is viewed
+ setlocal bufhidden=unload
+ " is read-only (write with :w new_filename)
+ setlocal buftype=nowrite
+ " no undo possible
+ setlocal undolevels=-1
+ " display message
+ autocmd VimEnter *  echo "The file is larger than " . (g:LargeFile / 1024 / 1024) . " MB, so some options are changed (see .vimrc for details)."
+endfunction
+
+function! NormalFile()
+ " syntax highlighting etc
+ set eventignore-=FileType
+ " do incsearch
+ set incsearch
+endfunction
