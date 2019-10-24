@@ -7,6 +7,8 @@ call minpac#add('junegunn/fzf')
 call minpac#add('aklt/plantuml-syntax',{'type': 'opt'})
 call minpac#add('tpope/vim-fugitive',{'type': 'opt'})
 call minpac#add('neoclide/coc.nvim',{'type': 'opt', 'branch': 'release'})
+call minpac#add('vim-airline/vim-airline')
+call minpac#add('majutsushi/tagbar')
 packadd vim-fugitive
 
 if &diff
