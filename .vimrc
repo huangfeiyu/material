@@ -40,6 +40,14 @@ set wildignore+=*/node_modules/*
 colorscheme industry " Change a colorscheme.
 set directory-=. "don't creat swap file in the same directory of the editting file, the default value of diretory as: directory=.,~/tmp,/var/tmp,/tmp
 nnoremap<C-p> :<C-u>FZF<CR>
+" remap the gf(go to file) command
+nnoremap gf :e **/src/**/<C-r><C-w>
+
+augroup MarkdownSpecific 
+  au!
+  autocmd BufEnter * if &filetype == "" | setlocal ft=markdown | set nonu | else | set nu | endif
+  autocmd BufReadPost * if &filetype == "markdown" | set nonu | else | set nu | endif
+augroup END
 
 " file is large from 10mb
 let g:LargeFile = 1024 * 1024 * 10
