@@ -4,6 +4,7 @@ packadd minpac
 call minpac#init()
 call minpac#add('k-takata/minpac', {'type': 'opt'})
 call minpac#add('junegunn/fzf')
+call minpac#add('junegunn/fzf.vim')
 " On-demand loading
 call minpac#add('aklt/plantuml-syntax',{'type': 'opt'})
 call minpac#add('tpope/vim-fugitive',{'type': 'opt'})
@@ -11,6 +12,29 @@ call minpac#add('neoclide/coc.nvim',{'type': 'opt', 'branch': 'release'})
 call minpac#add('vim-airline/vim-airline')
 call minpac#add('majutsushi/tagbar')
 packadd vim-fugitive
+
+syntax on " Enable syntax highlighting.
+filetype plugin indent on " Enable file type based indentation.
+set nu
+set smarttab
+set cursorline
+set hlsearch
+set nocompatible
+set nowrapscan
+set ignorecase " do case insensitive search and tag search
+set smartcase " switch to case sensitive automatically when upper case in pattern
+set wildignorecase " ignore case when open file by wildcard
+set autoindent " Respect indentation when starting a new line.
+set expandtab " Expand tabs to spaces. Essential in Python.
+set tabstop=4 " Number of spaces tab is counted for.
+set shiftwidth=4 " Number of spaces to use for autoindent.
+set backspace=2 " Fix backspace behavior on most terminals.
+set tags=.git/tags;
+set clipboard=unnamedplus
+set wildignore+=*/node_modules/*
+set wildignore+=*/target/*
+colorscheme industry " Change a colorscheme.
+set directory-=. "don't creat swap file in the same directory of the editting file, the default value of diretory as: directory=.,~/tmp,/var/tmp,/tmp
 
 if &diff
     " diff mode"
@@ -20,25 +44,10 @@ if &diff
     map [ [c
     nnoremap w 3w
     nnoremap b 3b
+    set nocursorline
+    syntax off
 endif
-syntax on " Enable syntax highlighting.
-filetype plugin indent on " Enable file type based indentation.
-set nu
-set smarttab
-set cursorline
-set hlsearch
-set nocompatible
-set nowrapscan
-set autoindent " Respect indentation when starting a new line.
-set expandtab " Expand tabs to spaces. Essential in Python.
-set tabstop=4 " Number of spaces tab is counted for.
-set shiftwidth=4 " Number of spaces to use for autoindent.
-set backspace=2 " Fix backspace behavior on most terminals.
-set tags=.git/tags;
-set clipboard=unnamedplus
-set wildignore+=*/node_modules/*
-colorscheme industry " Change a colorscheme.
-set directory-=. "don't creat swap file in the same directory of the editting file, the default value of diretory as: directory=.,~/tmp,/var/tmp,/tmp
+
 nnoremap<C-p> :<C-u>FZF<CR>
 " remap the gf(go to file) command
 nnoremap gf :e **/src/**/<C-r><C-w>
