@@ -50,7 +50,7 @@ endif
 
 nnoremap<C-p> :<C-u>FZF<CR>
 " remap the gf(go to file) command
-nnoremap gf :e **/src/**/<C-r><C-w>
+nnoremap ]f :e **/src/**/<C-r><C-w>
 
 augroup MarkdownSpecific 
   au!
