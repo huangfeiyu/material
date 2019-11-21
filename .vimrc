@@ -50,7 +50,6 @@ if &diff
 endif
 
 nnoremap<C-p> :<C-u>FZF<CR>
-nnoremap:Lex<CR> :<C-u>30Lex<CR>
 " remap the ]f(go to file) command
 nnoremap ]f :e **/src/**/<C-r><C-w>
 
