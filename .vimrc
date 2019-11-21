@@ -9,8 +9,9 @@ call minpac#add('junegunn/fzf.vim')
 call minpac#add('aklt/plantuml-syntax',{'type': 'opt'})
 call minpac#add('tpope/vim-fugitive',{'type': 'opt'})
 call minpac#add('neoclide/coc.nvim',{'type': 'opt', 'branch': 'release'})
-call minpac#add('vim-airline/vim-airline')
+"call minpac#add('vim-airline/vim-airline')
 call minpac#add('majutsushi/tagbar')
+call minpac#add('easymotion/vim-easymotion')
 packadd vim-fugitive
 
 syntax on " Enable syntax highlighting.
@@ -33,7 +34,7 @@ set tags=.git/tags;
 set clipboard=unnamedplus
 set wildignore+=*/node_modules/*
 set wildignore+=*/target/*
-colorscheme industry " Change a colorscheme.
+"colorscheme industry " Change a colorscheme.
 set directory-=. "don't creat swap file in the same directory of the editting file, the default value of diretory as: directory=.,~/tmp,/var/tmp,/tmp
 
 if &diff
