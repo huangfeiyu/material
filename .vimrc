@@ -31,7 +31,7 @@ set tabstop=4 " Number of spaces tab is counted for.
 set shiftwidth=4 " Number of spaces to use for autoindent.
 set backspace=2 " Fix backspace behavior on most terminals.
 set tags=.git/tags;
-set clipboard=unnamedplus
+set clipboard=unnamed,unnamedplus
 set wildignore+=*/node_modules/*
 set wildignore+=*/target/*
 "colorscheme industry " Change a colorscheme.
