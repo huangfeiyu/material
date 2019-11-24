@@ -1,4 +1,5 @@
 source $VIMRUNTIME/defaults.vim
+packadd! matchit
 set packpath^=~/.vim
 packadd minpac
 call minpac#init()
