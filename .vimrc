@@ -19,7 +19,7 @@ syntax on " Enable syntax highlighting.
 filetype plugin indent on " Enable file type based indentation.
 set nu
 set smarttab
-set cursorline
+" set cursorline
 set hlsearch
 set nocompatible
 set nowrapscan
@@ -37,6 +37,7 @@ set wildignore+=*/node_modules/*
 set wildignore+=*/target/*
 "colorscheme industry " Change a colorscheme.
 set directory-=. "don't creat swap file in the same directory of the editting file, the default value of diretory as: directory=.,~/tmp,/var/tmp,/tmp
+set linebreak "break by word not by character
 
 if &diff
     " diff mode"
