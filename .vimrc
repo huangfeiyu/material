@@ -12,7 +12,10 @@ call minpac#add('tpope/vim-fugitive',{'type': 'opt'})
 call minpac#add('neoclide/coc.nvim',{'type': 'opt', 'branch': 'release'})
 "call minpac#add('vim-airline/vim-airline')
 call minpac#add('majutsushi/tagbar')
+call minpac#add('mileszs/ack.vim')
 call minpac#add('easymotion/vim-easymotion')
+"call minpac#add('ycm-core/YouCompleteMe')
+call minpac#add('will133/vim-dirdiff')
 packadd vim-fugitive
 
 syntax on " Enable syntax highlighting.
@@ -22,7 +25,7 @@ set smarttab
 " set cursorline
 set hlsearch
 set nocompatible
-set nowrapscan
+" set nowrapscan
 set ignorecase " do case insensitive search and tag search
 set smartcase " switch to case sensitive automatically when upper case in pattern
 set wildignorecase " ignore case when open file by wildcard
@@ -41,6 +44,7 @@ set linebreak "break by word not by character
 
 if &diff
     " diff mode"
+    set lines=999 columns=999
     set diffopt+=iwhite
     set mouse=a
     map ] ]c
@@ -49,11 +53,30 @@ if &diff
     nnoremap b 3b
     set nocursorline
     syntax off
+    set diffexpr=DiffW()
+    function DiffW()
+        let opt = ""
+        if &diffopt =~ "icase"
+            let opt = opt . "-i "
+        endif
+        if &diffopt =~ "iwhite"
+            let opt = opt . "-w " " swapped vim's -b with -w
+        endif
+        silent execute "!diff -a --binary " . opt .
+                    \ v:fname_in . " " . v:fname_new .  " > " . v:fname_out
+    endfunction
 endif
 
 nnoremap<C-p> :<C-u>FZF<CR>
 " remap the ]f(go to file) command
 nnoremap ]f :e **/src/**/<C-r><C-w>
+
+if executable('ag')
+  let g:ackprg = 'ag --vimgrep'
+endif
+
+cnoreabbrev Ack Ack!
+nnoremap <Leader>a :Ack!<Space>
 
 augroup MarkdownSpecific 
   au!
