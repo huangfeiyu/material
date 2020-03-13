@@ -78,6 +78,7 @@ cnoreabbrev Ack Ack!
 nnoremap <Leader>s :Ack!<Space>
 nnoremap <Leader>a :Ag<CR>
 nnoremap <Leader>r :Rg<CR>
+nnoremap <Leader>t :Tags<CR>
 nnoremap <Leader>f :<C-u>FZF<CR>
 
 augroup MarkdownSpecific 
