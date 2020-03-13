@@ -67,7 +67,6 @@ if &diff
     endfunction
 endif
 
-nnoremap<C-p> :<C-u>FZF<CR>
 " remap the ]f(go to file) command
 nnoremap ]f :e **/src/**/<C-r><C-w>
 
@@ -76,7 +75,10 @@ if executable('ag')
 endif
 
 cnoreabbrev Ack Ack!
-nnoremap <Leader>a :Ack!<Space>
+nnoremap <Leader>s :Ack!<Space>
+nnoremap <Leader>a :Ag<CR>
+nnoremap <Leader>r :Rg<CR>
+nnoremap <Leader>f :<C-u>FZF<CR>
 
 augroup MarkdownSpecific 
   au!
