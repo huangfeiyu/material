@@ -80,6 +80,7 @@ nnoremap <Leader>a :Ag<CR>
 nnoremap <Leader>r :Rg<CR>
 nnoremap <Leader>t :Tags<CR>
 nnoremap <Leader>f :<C-u>FZF<CR>
+nnoremap <Leader>n :set nu!<CR>
 
 augroup MarkdownSpecific 
   au!
